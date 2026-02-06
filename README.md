@@ -4,17 +4,13 @@ API Backend pour l'application TaskFlow, développée avec Spring Boot.
 
 ## Fonctionnalités Implémentées
 
-*   **Authentification** : Inscription et Connexion sécurisées des utilisateurs via JWT (JSON Web Tokens) & Spring Security.
-*   **Gestion des Tâches** : Opérations CRUD complètes (Création, Lecture, Mise à jour, Suppression) pour les tâches.
-*   **Accès aux Données Avancé** : Pagination, Tri et Filtrage côté serveur (par statut et mot-clé de recherche).
+*   **Authentification** : Inscription et Connexion sécurisées des utilisateurs via JWT & Spring Security.
+*   **Gestion des Tâches** : Opérations CRUD complètes pour les tâches.
+*   **Accès aux Données Avancé** : Pagination, Tri et Filtrage côté serveur.
 *   **Sécurité** :
     *   Chiffrement des mots de passe (BCrypt).
     *   Validation de la propriété des données (les utilisateurs ne gèrent que leurs propres tâches).
     *   Authentification sans état (Stateless).
-*   **Architecture** :
-    *   Utilisation moderne des **Java Records** pour les DTOs.
-    *   Patron de conception Service.
-    *   Gestion Globale des Exceptions.
 *   **Logs** : Logging SLF4J implémenté dans les Contrôleurs et Services.
 *   **Base de Données** : Base de données H2 In-Memory pour le développement.
 
