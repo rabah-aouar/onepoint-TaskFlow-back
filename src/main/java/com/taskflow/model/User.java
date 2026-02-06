@@ -17,6 +17,8 @@ import java.util.List;
 @AllArgsConstructor
 @Entity
 @Table(name = "_user") // 'user' is a reserved keyword in H2/PostgreSQL
+@lombok.EqualsAndHashCode
+@lombok.ToString
 public class User implements UserDetails {
 
     @Id
@@ -26,16 +28,12 @@ public class User implements UserDetails {
     @Column(unique = true, nullable = false)
     private String username; // Email
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(nullable = false)
     private String password;
 
     private String firstName;
     private String lastName;
-
-    @ManyToMany
-    @JoinTable(name = "user_favorites", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "task_id"))
-    @Builder.Default
-    private java.util.Set<Task> favorites = new java.util.HashSet<>();
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

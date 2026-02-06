@@ -16,12 +16,19 @@ import java.util.Map;
 import java.util.function.Function;
 
 @Service
+@lombok.extern.slf4j.Slf4j
 public class JwtService {
 
     // Ideally this should be in application.properties, but ensuring it works out
     // of the box with a default strong key
     // This key is 256-bit
-    private static final String SECRET_KEY = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
+    @Value("${application.security.jwt.secret-key}")
+    private String secretKey;
+
+    private Key getSignInKey() {
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
 
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
@@ -37,6 +44,7 @@ public class JwtService {
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+        log.debug("Generating JWT token for user: {}", userDetails.getUsername());
         return Jwts.builder()
                 .setClaims(extraClaims)
                 .setSubject(userDetails.getUsername())
@@ -48,11 +56,19 @@ public class JwtService {
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+        boolean isValid = (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
+        if (!isValid) {
+            log.debug("Token validation failed for user: {}", userDetails.getUsername());
+        }
+        return isValid;
     }
 
     private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        boolean expired = extractExpiration(token).before(new Date());
+        if (expired) {
+            log.debug("JWT token is expired");
+        }
+        return expired;
     }
 
     private Date extractExpiration(String token) {
@@ -67,8 +83,4 @@ public class JwtService {
                 .getBody();
     }
 
-    private Key getSignInKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
-        return Keys.hmacShaKeyFor(keyBytes);
-    }
 }

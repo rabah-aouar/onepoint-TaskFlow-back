@@ -15,6 +15,8 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
+@lombok.EqualsAndHashCode(exclude = "user")
+@lombok.ToString(exclude = "user")
 public class Task {
 
     @Id

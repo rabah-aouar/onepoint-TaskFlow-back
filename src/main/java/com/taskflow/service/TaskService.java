@@ -10,11 +10,19 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.taskflow.model.TaskStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.util.StringUtils;
+import jakarta.persistence.criteria.Predicate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class TaskService {
 
     private final TaskRepository taskRepository;
@@ -25,68 +33,79 @@ public class TaskService {
         return (User) auth.getPrincipal(); // Principals are User objects in our setup
     }
 
-    public List<Task> getMyTasks() {
-        return taskRepository.findByUserId(getCurrentUser().getId());
+    public Page<Task> getTasks(Pageable pageable, TaskStatus status, String search) {
+        log.debug("Retrieving tasks for user: {}", getCurrentUser().getUsername());
+        Specification<Task> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("user").get("id"), getCurrentUser().getId()));
+
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            }
+
+            if (StringUtils.hasText(search)) {
+                String likePattern = "%" + search.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("title")), likePattern),
+                        cb.like(cb.lower(root.get("description")), likePattern)));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return taskRepository.findAll(spec, pageable);
     }
 
     public Task createTask(TaskRequest request) {
         var user = getCurrentUser();
+        log.debug("Creating new task '{}' for user: {}", request.title(), user.getUsername());
         var task = Task.builder()
-                .title(request.getTitle())
-                .description(request.getDescription())
-                .status(request.getStatus())
-                .priority(request.getPriority())
-                .dueDate(request.getDueDate())
+                .title(request.title())
+                .description(request.description())
+                .status(request.status())
+                .priority(request.priority())
+                .dueDate(request.dueDate())
                 .user(user)
                 .build();
-        return taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+        log.info("Task created with ID: {}", savedTask.getId());
+        return savedTask;
     }
 
     public Task updateTask(Long id, TaskRequest request) {
+        log.debug("Updating task ID: {}", id);
         var task = taskRepository.findById(id).orElseThrow(() -> new RuntimeException("Task not found"));
         // Check ownership
         if (!task.getUser().getId().equals(getCurrentUser().getId())) {
+            log.warn("Unauthorized update attempt on task ID: {} by user: {}", id, getCurrentUser().getUsername());
             throw new RuntimeException("Not authorized");
         }
 
-        if (request.getTitle() != null)
-            task.setTitle(request.getTitle());
-        if (request.getDescription() != null)
-            task.setDescription(request.getDescription());
-        if (request.getStatus() != null)
-            task.setStatus(request.getStatus());
-        if (request.getPriority() != null)
-            task.setPriority(request.getPriority());
-        if (request.getDueDate() != null)
-            task.setDueDate(request.getDueDate());
+        if (request.title() != null)
+            task.setTitle(request.title());
+        if (request.description() != null)
+            task.setDescription(request.description());
+        if (request.status() != null)
+            task.setStatus(request.status());
+        if (request.priority() != null)
+            task.setPriority(request.priority());
+        if (request.dueDate() != null)
+            task.setDueDate(request.dueDate());
 
-        return taskRepository.save(task);
+        Task updatedTask = taskRepository.save(task);
+        log.info("Task ID: {} updated successfully", id);
+        return updatedTask;
     }
 
     public void deleteTask(Long id) {
+        log.debug("Deleting task ID: {}", id);
         var task = taskRepository.findById(id).orElseThrow(() -> new RuntimeException("Task not found"));
         if (!task.getUser().getId().equals(getCurrentUser().getId())) {
+            log.warn("Unauthorized delete attempt on task ID: {} by user: {}", id, getCurrentUser().getUsername());
             throw new RuntimeException("Not authorized");
         }
         taskRepository.delete(task);
+        log.info("Task ID: {} deleted successfully", id);
     }
 
-    @Transactional
-    public Set<Task> toggleFavorite(Long taskId) {
-        var user = userRepository.findById(getCurrentUser().getId()).orElseThrow();
-        var task = taskRepository.findById(taskId).orElseThrow(() -> new RuntimeException("Task not found"));
-
-        if (user.getFavorites().contains(task)) {
-            user.getFavorites().remove(task);
-        } else {
-            user.getFavorites().add(task);
-        }
-        userRepository.save(user);
-        return user.getFavorites();
-    }
-
-    public Set<Task> getMyFavorites() {
-        var user = userRepository.findById(getCurrentUser().getId()).orElseThrow();
-        return user.getFavorites();
-    }
 }
